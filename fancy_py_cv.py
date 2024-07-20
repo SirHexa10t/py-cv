@@ -1,20 +1,22 @@
 #!/usr/bin/python3
 
 import tkinter as tk
-
+from tkinter import ttk
 
 ############################################################
 #################  THEME / TYPESET  ########################
 ############################################################
 
+
+# Constants for the theme and layout
 WINDOW_TITLE = "My cross-platform CV"
 WRAPLENGTH = 750
 PADDING_X = 20
 PADDING_Y = 5
 TIMELINE_WIDTH = 5
 TIMELINE_PADX = 50
-PREFERRED_WINDOW_WIDTH = 1600
-PREFERRED_WINDOW_HEIGHT =1000
+WINDOW_GEOMETRY = "1600x1000"
+SCROLLBAR_WIDTH = 25
 
 # Theme colors (dark by default)
 BG_COLOR = "#2E2E2E"            # Dark grey
@@ -24,9 +26,11 @@ BUTTON_FG_COLOR = TEXT_COLOR
 TIMELINE_COLOR = "#FFFFFF"      # White for timeline elements
 
 TITLE_SIZE = 16
+REG_SIZE = 12
 FONT_TYPE = 'Helvetica'
 FONT_STYLIZING = 'bold'
 FONT_TITLE = (FONT_TYPE, TITLE_SIZE, FONT_STYLIZING)
+FONT_PARAGRAPH = (FONT_TYPE, REG_SIZE, FONT_STYLIZING)
 
 
 ############################################################
@@ -154,7 +158,7 @@ class Footnote(tk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
-        footnote_label = tk.Label(self, text=self.text, bg=BG_COLOR, fg=TEXT_COLOR, anchor="w", wraplength=self.winfo_width())
+        footnote_label = tk.Label(self, text=self.text, bg=BG_COLOR, fg=TEXT_COLOR, anchor="w", justify="left", wraplength=self.winfo_width())
         footnote_label.pack(fill=tk.X, pady=PADDING_Y)
 
     def update_wraplength(self, width):
@@ -167,6 +171,7 @@ class Footnote(tk.Frame):
 #################  PERSONAL CONTENT  #######################
 ############################################################
 
+
 APPLICANT = "Count Dracula"
 APPLICANT_CONTACT = """\
 Address: Bran Castle, Carpathian Mountains, Transylvania
@@ -174,7 +179,8 @@ Phone: +40-666-DRACULA (372-2852)
 dracu1431@darkmail.com
 """
 
-OBJECTIVE = "To sink my teeth into challenging roles that allow me to utilize my centuries of experience in nocturnal management and stakeholder relations. Have strong preference for night-shifts."
+OBJECTIVE = """\
+To sink my teeth into challenging roles that allow me to utilize my centuries of experience in nocturnal management and stakeholder relations. Have strong preference for night-shifts."""
 EDUCATION = """\
 • (1698) Doctor of Darkness, at Transylvania University of Eternal Night
 • (1453) Bachelor of Eternal Night, at Transylvanian School of Dark Arts
@@ -192,16 +198,15 @@ HOBBIES_AND_INTERESTS = """\
 • Night Flights: Enjoys evening excursions and moonlit adventures.
 """
 
-
-# Widget Structure - needs to be created late to avoid GUI issues.
+# Widget structure - needs to be created late to avoid GUI issues.
 WIDGET_STRUCTURE = [
     (TitleWithParagraph, APPLICANT, APPLICANT_CONTACT, True),
     (TitleWithParagraph, 'Objective', OBJECTIVE),
     (TitleWithParagraph, 'Education', EDUCATION),
-    (Timeline, 'Professional Experience', [        
+    (Timeline, 'Professional Experience', [
         {"time": "(1987-1992) Literacy consultant", "description": """\
 • Commissioned a far-eastern entertainment illustrated-medium based on my autobiography
-    • Polularity of my life-story's retelling had brought fourth its remake in a worldwide-successful drawn-film series, and interactive animatronic-entertainment adaptations"""},
+    • Popularity of my life-story's retelling had brought forth its remake in a worldwide-successful drawn-film series, and interactive animatronic-entertainment adaptations"""},
         {"time": "(1897) Diplomat", "description": """\
 • Emissary to London, Britain"""},
         {"time": "(1750 - Present) Nightlife Consultant", "description": """\
@@ -212,12 +217,10 @@ WIDGET_STRUCTURE = [
 • Successfully maintained an extensive network of spooky castles and crypts."""},
     ]),
     (TitleWithParagraph, 'Skills', SKILLS),
-    (TitleWithParagraph, 'Hobbies and Interests:', HOBBIES_AND_INTERESTS),
-
+    (TitleWithParagraph, 'Hobbies and Interests', HOBBIES_AND_INTERESTS),
 ]
 
 FOOTNOTE_TEXT = "This is a parody CV, please don't seek evil lords on Github. If you want to contact me: sirhexal@gmail.com (I seldom check on emails there)"
-
 
 
 ############################################################
@@ -233,19 +236,46 @@ class DocumentEditor(tk.Tk):
         self.update_window_size()
 
     def create_widgets(self):
+        self.container = tk.Frame(self, bg=BG_COLOR)
+        self.container.pack(fill=tk.BOTH, expand=True)
+        
+        # Create a frame for the scrollable content
+        self.scrollable_content_frame = tk.Frame(self.container, bg=BG_COLOR)
+        self.scrollable_content_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    
+        self.canvas = tk.Canvas(self.scrollable_content_frame, bg=BG_COLOR)
+        
+        # Create a custom style for the scrollbar
+        style = ttk.Style()
+        style.configure("Vertical.TScrollbar", width=SCROLLBAR_WIDTH)
+        
+        self.scrollbar = ttk.Scrollbar(self.scrollable_content_frame, orient="vertical", command=self.canvas.yview, style="Vertical.TScrollbar")
+        self.scrollable_frame = tk.Frame(self.canvas, bg=BG_COLOR)
+    
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+    
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+    
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    
+        self.bind_all("<MouseWheel>", self._on_mousewheel)  # Windows
+        self.bind_all("<Button-4>", self._on_mousewheel)    # Linux scroll up
+        self.bind_all("<Button-5>", self._on_mousewheel)    # Linux scroll down
+    
         self.widget_frames = []
         for widget_info in WIDGET_STRUCTURE:
             widget_class = widget_info[0]
             widget_args = widget_info[1:]
-            widget = widget_class(self, *widget_args)
+            widget = widget_class(self.scrollable_frame, *widget_args)
             widget.pack(fill=tk.X, pady=PADDING_Y)
             self.widget_frames.append(widget)
-
-
-        # Add footnote
-        self.footnote_frame = Footnote(self, FOOTNOTE_TEXT)
+    
+        # Create the footnote frame and place it directly in the main container
+        self.footnote_frame = Footnote(self.container, FOOTNOTE_TEXT)
         self.footnote_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=PADDING_Y)
-        
+    
         self.bind("<Configure>", self.on_resize)
 
     def on_resize(self, event):
@@ -259,10 +289,14 @@ class DocumentEditor(tk.Tk):
 
     def update_window_size(self):
         self.update_idletasks()  # Ensure all geometry updates are processed
-        self.geometry(f"{PREFERRED_WINDOW_WIDTH}x{PREFERRED_WINDOW_HEIGHT}")
+        self.geometry(WINDOW_GEOMETRY)
 
+    def _on_mousewheel(self, event):
+        if event.num == 5 or event.delta == -120:
+            self.canvas.yview_scroll(1, "units")
+        if event.num == 4 or event.delta == 120:
+            self.canvas.yview_scroll(-1, "units")
 
 if __name__ == "__main__":
     app = DocumentEditor()
     app.mainloop()
-
