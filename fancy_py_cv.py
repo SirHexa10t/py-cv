@@ -40,65 +40,64 @@ FONT_PARAGRAPH = (FONT_TYPE, REG_SIZE, FONT_STYLIZING)
 class CollapsibleTimelineEvent(tk.Frame):
     def __init__(self, master, time, description, timeline):
         super().__init__(master, bg=BG_COLOR)
-        self.time = time
-        self.description = description
-        self.is_collapsed = True  # Initially collapsed
-        self.timeline = timeline  # Reference to the timeline
-        self.create_widgets()
+        self.is_collapsed = True
+        self.timeline = timeline
+        self.create_widgets(time, description)
 
-    def create_widgets(self):
-        self.time_button = tk.Button(self, text=self.time, command=self.toggle_content, bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR, anchor="w")
-        self.time_button.pack(pady=PADDING_Y, anchor='w')
+    def create_widgets(self, time, description):
+        self.time_button = self.create_button(self, time, self.toggle_content)
+        self.content_frame = self.create_frame(self, description)
 
-        self.content_frame = tk.Frame(self, bg=BG_COLOR)
-        self.description_label = tk.Label(self.content_frame, justify=tk.LEFT, text=self.description, wraplength=self.winfo_width(), bg=BG_COLOR, fg=TEXT_COLOR)
-        self.description_label.pack(anchor='w', padx=PADDING_X)
-        self.content_frame.pack(fill=tk.X)
-        self.content_frame.pack_forget()  # Initially hide the content frame
+    def create_button(self, master, text, command):
+        button = tk.Button(master, text=text, command=command, bg=BUTTON_BG_COLOR, fg=BUTTON_FG_COLOR, anchor="w")
+        button.pack(pady=PADDING_Y, anchor='w')
+        return button
+
+    def create_frame(self, master, text):
+        frame = tk.Frame(master, bg=BG_COLOR)
+        label = tk.Label(frame, text=text, justify=tk.LEFT, wraplength=self.winfo_width(), bg=BG_COLOR, fg=TEXT_COLOR)
+        label.pack(anchor='w', padx=PADDING_X)
+        frame.pack(fill=tk.X)
+        frame.pack_forget()
+        return frame
 
     def toggle_content(self):
         if self.is_collapsed:
             self.content_frame.pack(fill=tk.X)
-            self.is_collapsed = False
         else:
             self.content_frame.pack_forget()
-            self.is_collapsed = True
-        self.timeline.update_canvas_height()  # Update the canvas height
+        self.is_collapsed = not self.is_collapsed
+        self.timeline.update_canvas_height()
 
     def update_wraplength(self, width):
-        self.description_label.config(wraplength=width - 2 * PADDING_X)
-
+        for label in self.content_frame.winfo_children():
+            label.config(wraplength=width - 2 * PADDING_X)
 
 class Timeline(tk.Frame):
     def __init__(self, master, title, events):
         super().__init__(master, bg=BG_COLOR)
-        self.title = title
         self.events = events
-        self.create_widgets()
+        self.create_widgets(title)
 
-    def create_widgets(self):
-        title_label = tk.Label(self, text=self.title, bg=BG_COLOR, fg=TEXT_COLOR, font=FONT_TITLE, anchor="w")
-        title_label.pack(fill=tk.X, pady=PADDING_Y)
-
+    def create_widgets(self, title):
+        self.create_label(self, title, FONT_TITLE, "w").pack(fill=tk.X, pady=PADDING_Y)
         self.canvas = tk.Canvas(self, width=TIMELINE_WIDTH, bg=BG_COLOR, highlightthickness=0)
         self.canvas.pack(side=tk.LEFT, padx=TIMELINE_PADX, pady=PADDING_Y, fill=tk.Y)
 
-        self.event_frames = []
-        for index, event in enumerate(self.events):
-            collapsible_event = CollapsibleTimelineEvent(self, event['time'], event['description'], self)
-            collapsible_event.pack(fill=tk.X, pady=PADDING_Y, anchor="w")
-            self.event_frames.append(collapsible_event)
-
+        self.event_frames = [self.create_event_frame(event) for event in self.events]
         self.update_canvas_height()
 
+    def create_label(self, master, text, font, anchor):
+        return tk.Label(master, text=text, bg=BG_COLOR, fg=TEXT_COLOR, font=font, anchor=anchor)
+
+    def create_event_frame(self, event):
+        frame = CollapsibleTimelineEvent(self, event['time'], event['description'], self)
+        frame.pack(fill=tk.X, pady=PADDING_Y, anchor="w")
+        return frame
+
     def update_canvas_height(self):
-        total_height = 0
-        for frame in self.event_frames:
-            total_height += frame.time_button.winfo_reqheight()
-            if not frame.is_collapsed:
-                total_height += frame.content_frame.winfo_reqheight()
+        total_height = sum(frame.time_button.winfo_reqheight() + (0 if frame.is_collapsed else frame.content_frame.winfo_reqheight()) for frame in self.event_frames)
         total_height += PADDING_Y * len(self.event_frames)
-        
         self.canvas.config(height=total_height)
         self.canvas.delete("all")
         self.canvas.create_line(TIMELINE_WIDTH // 2, 0, TIMELINE_WIDTH // 2, total_height, fill=TIMELINE_COLOR, width=TIMELINE_WIDTH)
@@ -107,59 +106,53 @@ class Timeline(tk.Frame):
         for frame in self.event_frames:
             frame.update_wraplength(width)
 
-
 class TitleWithParagraph(tk.Frame):
     def __init__(self, master, title, paragraph, center=False):
         super().__init__(master, bg=BG_COLOR)
-        self.title = title
-        self.paragraph = paragraph
         self.center = center
-        self.is_collapsed = not center  # Centered title is not collapsible, left-aligned is initially collapsed
-        self.create_widgets()
+        self.is_collapsed = not center
+        self.create_widgets(title, paragraph)
 
-    def create_widgets(self):
+    def create_widgets(self, title, paragraph):
         title_anchor = "center" if self.center else "w"
-        paragraph_anchor = "center" if self.center else "w"
+        title_label = self.create_label(self, title, FONT_TITLE, title_anchor)
         
-        title_style_args = { 'text': self.title, 'bg': BG_COLOR, 'fg': TEXT_COLOR, 'font': FONT_TITLE, 'anchor': title_anchor, }
-        paragraph_label_args = { 'text': self.paragraph, 'wraplength': self.winfo_width(), 'bg': BG_COLOR, 'fg': TEXT_COLOR, 'anchor': paragraph_anchor, }
-        def pack_element(elem):
-            elem.pack(fill=tk.X, pady=PADDING_Y)
-            
         if self.center:
-            pack_element(tk.Label(self, **title_style_args))
-            self.paragraph_label = tk.Label(self, **paragraph_label_args)
-            pack_element(self.paragraph_label)
+            title_label.pack(fill=tk.X, pady=PADDING_Y)
+            self.paragraph_label = self.create_label(self, paragraph, FONT_PARAGRAPH, 'center')
+            self.paragraph_label.pack(fill=tk.X, pady=PADDING_Y)
         else:
-            self.title_button = tk.Button(self, command=self.toggle_content, **title_style_args)
-            pack_element(self.title_button)
+            self.title_button = tk.Button(self, text=title, command=self.toggle_content, bg=BG_COLOR, fg=TEXT_COLOR, font=FONT_TITLE, anchor=title_anchor)
+            self.title_button.pack(fill=tk.X, pady=PADDING_Y)
             self.content_frame = tk.Frame(self, bg=BG_COLOR)
-            self.paragraph_label = tk.Label(self.content_frame, justify=tk.LEFT, **paragraph_label_args)
-            pack_element(self.paragraph_label)
+            self.paragraph_label = self.create_label(self.content_frame, paragraph, FONT_PARAGRAPH, 'w', justify=tk.LEFT)
+            self.paragraph_label.pack(fill=tk.X, pady=PADDING_Y)
             self.content_frame.pack(fill=tk.X)
-            self.content_frame.pack_forget()  # Initially hide the content frame
+            self.content_frame.pack_forget()
+
+    def create_label(self, master, text, font, anchor, justify=tk.CENTER):
+        return tk.Label(master, text=text, bg=BG_COLOR, fg=TEXT_COLOR, font=font, anchor=anchor, justify=justify)
 
     def toggle_content(self):
         if self.is_collapsed:
             self.content_frame.pack(fill=tk.X)
-            self.is_collapsed = False
         else:
             self.content_frame.pack_forget()
-            self.is_collapsed = True
+        self.is_collapsed = not self.is_collapsed
 
     def update_wraplength(self, width):
         self.paragraph_label.config(wraplength=width - PADDING_X)
-        
 
 class Footnote(tk.Frame):
     def __init__(self, master, text):
         super().__init__(master, bg=BG_COLOR)
-        self.text = text
-        self.create_widgets()
+        self.create_widgets(text)
 
-    def create_widgets(self):
-        footnote_label = tk.Label(self, text=self.text, bg=BG_COLOR, fg=TEXT_COLOR, anchor="w", justify="left", wraplength=self.winfo_width())
-        footnote_label.pack(fill=tk.X, pady=PADDING_Y)
+    def create_widgets(self, text):
+        self.create_label(self, text, FONT_PARAGRAPH, "w").pack(fill=tk.X, pady=PADDING_Y)
+
+    def create_label(self, master, text, font, anchor):
+        return tk.Label(master, text=text, bg=BG_COLOR, fg=TEXT_COLOR, wraplength=self.winfo_width(), anchor=anchor, justify="left")
 
     def update_wraplength(self, width):
         for child in self.winfo_children():
@@ -264,19 +257,19 @@ class DocumentEditor(tk.Tk):
         self.bind_all("<Button-4>", self._on_mousewheel)    # Linux scroll up
         self.bind_all("<Button-5>", self._on_mousewheel)    # Linux scroll down
     
-        self.widget_frames = []
-        for widget_info in WIDGET_STRUCTURE:
-            widget_class = widget_info[0]
-            widget_args = widget_info[1:]
-            widget = widget_class(self.scrollable_frame, *widget_args)
-            widget.pack(fill=tk.X, pady=PADDING_Y)
-            self.widget_frames.append(widget)
+        self.widget_frames = [self.create_widget(widget_info) for widget_info in WIDGET_STRUCTURE]
     
         # Create the footnote frame and place it directly in the main container
         self.footnote_frame = Footnote(self.container, FOOTNOTE_TEXT)
         self.footnote_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=PADDING_Y)
     
         self.bind("<Configure>", self.on_resize)
+
+    def create_widget(self, widget_info):
+        widget_class, *widget_args = widget_info
+        widget = widget_class(self.scrollable_frame, *widget_args)
+        widget.pack(fill=tk.X, pady=PADDING_Y)
+        return widget
 
     def on_resize(self, event):
         self.update_wraplengths()
