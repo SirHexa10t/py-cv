@@ -240,7 +240,14 @@ class DocumentEditor(tk.Tk):
         
         # Create a custom style for the scrollbar
         style = ttk.Style()
-        style.configure("Vertical.TScrollbar", width=SCROLLBAR_WIDTH)
+        style.configure("Vertical.TScrollbar",
+                        width=SCROLLBAR_WIDTH,
+                        background=TEXT_COLOR, 
+                        troughcolor=BG_COLOR, 
+                        arrowcolor=TEXT_COLOR, 
+                        gripcount=0, 
+                        relief=tk.FLAT)
+        style.map("Vertical.TScrollbar", background=[('active', BG_COLOR), ('disabled', BG_COLOR)])
         
         self.scrollbar = ttk.Scrollbar(self.scrollable_content_frame, orient="vertical", command=self.canvas.yview, style="Vertical.TScrollbar")
         self.scrollable_frame = tk.Frame(self.canvas, bg=BG_COLOR)
@@ -272,9 +279,6 @@ class DocumentEditor(tk.Tk):
         return widget
 
     def on_resize(self, event):
-        self.update_wraplengths()
-
-    def update_wraplengths(self):
         width = self.winfo_width()
         for widget in self.widget_frames:
             widget.update_wraplength(width)
